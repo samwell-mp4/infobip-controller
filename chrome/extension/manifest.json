@@ -1,38 +1,25 @@
 {
   "manifest_version": 3,
-  "name": "Infobip Broadcast Scraper",
-  "version": "1.0.0",
-  "description": "Extrai dados de transmissões do portal Infobip automaticamente.",
+  "name": "Infobip Report Automator",
+  "version": "1.1",
+  "description": "Automatiza a extração de relatórios no Infobip a partir de uma lista de links. Verifica se Pendentes = 0, tira screenshot e gera o relatório automaticamente. Roda a cada 2 horas via timer.",
   "permissions": [
-    "storage",
-    "tabs",
-    "scripting",
     "activeTab",
-    "sidePanel",
+    "alarms",
     "downloads",
-    "alarms"
+    "notifications",
+    "scripting",
+    "storage",
+    "tabs"
   ],
   "host_permissions": [
-    "https://portal-ny2.infobip.com/*",
-    "http://controller:3000/*",
-    "https://var-hub-infobip-controller.hx8235.easypanel.host/*"
+    "https://*.infobip.com/*",
+    "<all_urls>"
   ],
-  "side_panel": {
-    "default_path": "popup/popup.html"
-  },
   "action": {
-    "default_title": "Abrir Infobip Scraper"
+    "default_popup": "popup.html"
   },
   "background": {
-    "service_worker": "scripts/background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["https://portal-ny2.infobip.com/broadcast*"],
-      "js": ["scripts/content.js"]
-    }
-  ],
-  "icons": {
-    "128": "icons/icon128.png"
+    "service_worker": "background.js"
   }
 }
