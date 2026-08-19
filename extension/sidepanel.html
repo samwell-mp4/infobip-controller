@@ -20,6 +20,7 @@
     button.danger:hover { background-color: #b02a37; }
     hr { border: none; border-top: 1px solid #ddd; margin: 14px 0 6px; }
     #status { margin-top: 8px; font-size: 11px; color: #555; }
+    #timers { margin-top: 8px; font-size: 11px; color: #333; background: #fff8e1; border: 1px solid #e7d9a0; border-radius: 4px; padding: 6px; white-space: pre-wrap; }
     #queue { margin-top: 6px; max-height: 200px; overflow: auto; border: 1px solid #ddd; border-radius: 4px; background: #fff; }
     .qitem { padding: 5px 8px; font-size: 11px; border-bottom: 1px solid #eee; }
     .qitem:last-child { border-bottom: none; }
@@ -27,12 +28,14 @@
     .qitem .qname { font-weight: bold; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .qitem .qurl { color: #888; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .empty { padding: 8px; font-size: 11px; color: #888; text-align: center; }
+    #standby { margin-top: 6px; max-height: 130px; overflow: auto; border: 1px solid #ddd; border-radius: 4px; background: #fff; }
     #log { margin-top: 6px; font-size: 10px; color: #444; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 6px; height: 160px; overflow: auto; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <h3>Infobip Automator</h3>
   <div id="status">Carregando...</div>
+  <div id="timers"></div>
 
   <label>Fila de relatórios</label>
   <div id="queue"></div>
@@ -42,7 +45,11 @@
   </div>
   <div class="row">
     <button id="resetBtn" class="danger">Resetar (des-travar)</button>
+    <button id="stopBtn" class="danger">PARAR</button>
   </div>
+
+  <label>Em standby (aguardando Pendentes = 0)</label>
+  <div id="standby"></div>
 
   <hr>
   <label>Links manuais (um por linha, opcional: link | telefone):</label>

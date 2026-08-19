@@ -83,6 +83,49 @@ function getAlarm(name) {
   return new Promise(resolve => chrome.alarms.get(name, a => resolve(a || null)));
 }
 
+// ---------- Registro (banco de dados) anti-duplicado ----------
+// Chave = numero|url. Cada item tem um "código/etiqueta" (IB-XXXX) para identificação.
+
+const REGISTRY_KEY = 'ib_registry';
+
+function jobKey(numero, url) {
+  return `${String(numero || '')}|${String(url || '')}`;
+}
+
+function getRegistry() {
+  return new Promise(resolve => {
+    chrome.storage.local.get(REGISTRY_KEY, d => resolve(d[REGISTRY_KEY] || {}));
+  });
+}
+
+function setRegistry(reg) {
+  return chrome.storage.local.set({ [REGISTRY_KEY]: reg });
+}
+
+async function registryMark(item, state) {
+  const reg = await getRegistry();
+  const key = jobKey(item.phone, item.url);
+  const existing = reg[key];
+  reg[key] = {
+    key,
+    numero: item.phone || '',
+    url: item.url || '',
+    name: item.name || '',
+    code: existing ? existing.code : 'IB-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
+    state,
+    created: existing ? existing.created : Date.now(),
+    updated: Date.now(),
+    skips: existing ? existing.skips + (state === 'standby' ? 1 : 0) : (state === 'standby' ? 1 : 0)
+  };
+  await setRegistry(reg);
+  return reg[key];
+}
+
+async function standbyItems() {
+  const reg = await getRegistry();
+  return Object.values(reg).filter(r => r.state === 'standby');
+}
+
 function safeName(s) {
   const clean = String(s || '').replace(/[^\w\-]+/g, '_').replace(/_+/g, '_').slice(0, 60);
   return clean || 'relatorio';
@@ -218,6 +261,7 @@ async function startProcessing(source) {
   }
   await setBusy(true);
   startKeepAlive();
+  await sSet('stopped', false);
   await sSet('ib_proc_start', Date.now());
   await sSet('ib_proc_beat', Date.now());
 
@@ -279,6 +323,12 @@ async function waitForTabLoad(tabId, timeoutMs) {
 
 function processNext() {
   getQueue().then(async queue => {
+    if (await sGet('stopped', false)) {
+      await setBusy(false);
+      await sSet('stopped', false);
+      log('PARADO — fila cancelada.');
+      return;
+    }
     if (!queue.length) {
       await setBusy(false);
       log('Todos os itens foram processados.');
@@ -333,15 +383,33 @@ function normalizeJob(j) {
 
 async function enqueueN8nJobs(items) {
   const queue = await getQueue();
+  const reg = await getRegistry();
   const existing = new Set(queue.map(q => q.url + '|' + q.phone));
-  const fresh = items.filter(i => !existing.has(i.url + '|' + i.phone));
+  const fresh = items.filter(i => {
+    if (existing.has(i.url + '|' + i.phone)) return false;
+    return !reg[jobKey(i.phone, i.url)];
+  });
   if (!fresh.length) {
-    log('Pedidos já estão na fila ou foram processados.');
+    log('Nenhum pedido novo (já estão na fila, em standby ou já processados).');
     return;
   }
   await setQueue(queue.concat(fresh));
-  log(`${fresh.length} pedido(s) adicionado(s) à fila.`);
+  log(`${fresh.length} pedido(s) novo(s) adicionado(s) à fila.`);
   startProcessing('n8n');
+}
+
+// Re-adiciona à fila os itens em STANDBY (Pendentes > 0) para reconsultar até Pendentes = 0
+async function requeueStandby() {
+  const standby = await standbyItems();
+  if (!standby.length) return;
+  const queue = await getQueue();
+  const inQueue = new Set(queue.map(q => q.url + '|' + q.phone));
+  const toAdd = standby.filter(s => !inQueue.has(s.url + '|' + s.numero))
+    .map(s => ({ url: s.url, phone: s.numero, name: s.name, jobId: null, code: s.code }));
+  if (!toAdd.length) return;
+  await setQueue(queue.concat(toAdd));
+  log(`${toAdd.length} item(ns) em STANDBY re-adicionado(s) para reconsulta (até Pendentes = 0).`);
+  startProcessing('standby');
 }
 
 async function runN8nPoll() {
@@ -369,10 +437,11 @@ async function runN8nPoll() {
     });
     if (!items.length) {
       log('Nenhum pedido pendente no n8n.');
-      return;
+    } else {
+      log(`${items.length} pedido(s) novo(s) encontrado(s).`);
+      await enqueueN8nJobs(items);
     }
-    log(`${items.length} pedido(s) novo(s) encontrado(s).`);
-    await enqueueN8nJobs(items);
+    await requeueStandby();
   } catch (e) {
     log('Erro ao buscar pedidos do n8n: ' + e);
   }
@@ -416,6 +485,13 @@ async function postResultToN8n(item) {
     } else {
       log('Resposta do webhook: ' + respText.slice(0, 200));
     }
+    if (resp.ok) {
+      const rec = await registryMark(item, 'sent');
+      log(`[ENVIADO] ${item.name}${item.phone ? ' - ' + item.phone : ''} (${rec.code}).`);
+    } else {
+      const rec = await registryMark(item, 'standby');
+      log(`[FALHOU ENVIO] ${item.name} mantido em standby (${rec.code}).`);
+    }
     showNotify(`n8n: ${resp.ok ? 'enviado' : 'FALHOU'} (${status}${item.phone ? ' - ' + item.phone : ''})`);
   } catch (e) {
     log('Falha ao enviar resultado ao n8n: ' + e);
@@ -449,16 +525,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const links = await getQueue();
           const current = await sGet('ib_current', null);
           const alarm = await getAlarm(ALARM_NAME);
+          const pollAlarm = await getAlarm(POLL_ALARM);
           const cfg = await getN8nConfig();
           const local = await new Promise(res =>
             chrome.storage.local.get(['ib_status', 'ib_logs'], res)
           );
+          const reg = await getRegistry();
+          const standby = Object.values(reg).filter(r => r.state === 'standby').sort((a, b) => b.updated - a.updated).slice(0, 50);
+          const sentCount = Object.values(reg).filter(r => r.state === 'sent').length;
           sendResponse({
             ok: true,
             links,
             current,
             timerOn: !!alarm,
             nextRun: alarm ? new Date(alarm.scheduledTime).toLocaleString() : null,
+            pollOn: !!pollAlarm,
+            nextPoll: pollAlarm ? new Date(pollAlarm.scheduledTime).toLocaleString() : null,
+            standby,
+            sentCount,
             lastStatus: local.ib_status || null,
             logs: local.ib_logs || [],
             n8n: {
@@ -497,6 +581,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           await sSet('test_mode', true);
           await setBusy(true);
           startKeepAlive();
+          await sSet('stopped', false);
           await sSet('ib_proc_start', Date.now());
           await sSet('ib_proc_beat', Date.now());
           log(`=== MODO TESTE === ${testUrl}${testPhone ? ' | tel ' + testPhone : ''}`);
@@ -623,10 +708,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           await sSet('ib_count', (request.count ?? '').toString());
           const name = request.name || '?';
           const count = request.count ?? '?';
-          log(`[PULADO] ${name}: Pendentes = ${count} (diferente de 0). Relatório NÃO gerado.`);
+          const item = await sGet('ib_current', null);
+          let rec = null;
+          if (item && item.url) {
+            rec = await registryMark(item, 'standby');
+            log(`[STANDBY] ${name}: Pendentes = ${count}. Em espera (${rec.code}). Reconsultado até Pendentes = 0.`);
+          } else {
+            log(`[PULADO] ${name}: Pendentes = ${count} (diferente de 0). Relatório NÃO gerado.`);
+          }
           const isTestNow = await sGet('test_mode', false);
           if (isTestNow) {
-            showNotify(`Teste: ${name} pulado (Pendentes = ${count}).`);
+            showNotify(`Teste: ${name} pendente = ${count}${rec ? ' (' + rec.code + ')' : ''}.`);
           }
           sendResponse({ ok: true });
           return;
@@ -637,6 +729,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           if (sender.tab) {
             try { await chrome.tabs.remove(sender.tab.id); } catch (e) {}
           }
+          if (await sGet('stopped', false)) {
+            await setBusy(false);
+            await sSet('stopped', false);
+            await sSet('ib_current', null);
+            log('PARADO — item cancelado, nada enviado.');
+            sendResponse({ ok: true });
+            return;
+          }
 
           const item = await sGet('ib_current', null);
           const wasTest = await sGet('test_mode', false);
@@ -644,13 +744,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           // Se houver telefone, envia o resultado ao webhook do n8n
           if (item && item.phone) {
             await postResultToN8n(item);
-          } else {
+          } else if (item) {
             const status = await sGet('ib_status', 'gerado');
-            log(
-              status === 'pulado'
-                ? 'Item pulado (sem telefone) - nada enviado ao webhook.'
-                : 'Relatório gerado, mas SEM TELEFONE - nada enviado ao webhook. Use "link | telefone" ou confira o webhook de busca.'
-            );
+            if (status === 'pulado') {
+              log('Item pulado (sem telefone) - nada enviado ao webhook.');
+            } else {
+              const rec = await registryMark(item, 'sent');
+              log(`Relatório gerado SEM TELEFONE - marcado (${rec.code}) para não repetir.`);
+            }
+          } else {
+            log('Sem item para registrar.');
           }
 
           if (wasTest) {
@@ -668,9 +771,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           return;
         }
 
+        case 'stop_all': {
+          await setBusy(false);
+          await sSet('test_mode', false);
+          await sSet('stopped', true);
+          await sSet('ib_current', null);
+          await sSet('ib_status', 'PARADO pelo usuário.');
+          await sSet('ib_count', '');
+          await sSet('ib_proc_beat', 0);
+          await setQueue([]);
+          await chrome.alarms.clear(ALARM_NAME);
+          await chrome.alarms.clear(POLL_ALARM);
+          log('PARADO — processamento cancelado, fila limpa e timers (2h/5min) desativados.');
+          showNotify('Infobip Automator PARADO.');
+          sendResponse({ ok: true });
+          return;
+        }
+
         case 'reset_state': {
           await setBusy(false);
           await sSet('test_mode', false);
+          await sSet('stopped', false);
           await sSet('ib_current', null);
           await sSet('ib_status', 'Estado resetado.');
           await sSet('ib_count', '');

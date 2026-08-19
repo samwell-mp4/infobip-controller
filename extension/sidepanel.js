@@ -27,6 +27,31 @@ function renderQueue(links, current) {
   }).join('');
 }
 
+function renderTimers(resp) {
+  const el = $('timers');
+  const parts = [];
+  parts.push('Timer 2h: ' + (resp.nextRun ? resp.nextRun : (resp.timerOn ? 'agendado' : 'OFF')));
+  parts.push('Busca auto (' + (resp.n8n ? resp.n8n.pollMin : 5) + ' min): ' + (resp.nextPoll ? resp.nextPoll : (resp.pollOn ? 'agendado' : 'OFF')));
+  if (resp.n8n && resp.n8n.lastPoll) parts.push('Última busca: ' + resp.n8n.lastPoll);
+  if (resp.sentCount !== undefined) parts.push('Enviados/registrados: ' + resp.sentCount);
+  el.innerText = parts.join('\n');
+}
+
+function renderStandby(list) {
+  const el = $('standby');
+  if (!list || !list.length) {
+    el.innerHTML = '<div class="empty">Nenhum item em espera.</div>';
+    return;
+  }
+  el.innerHTML = list.map(s => {
+    const when = new Date(s.updated).toLocaleString();
+    return '<div class="qitem">' +
+      '<div class="qname">' + esc(s.code || '') + ' | ' + esc(s.numero) + ' | tentativas: ' + (s.skips || 0) + '</div>' +
+      '<div class="qurl">' + esc(s.name) + ' - ' + when + '</div>' +
+      '</div>';
+  }).join('');
+}
+
 async function refresh() {
   try {
     const resp = await sendMsg({ action: 'get_links' });
@@ -35,9 +60,12 @@ async function refresh() {
       return;
     }
     $('status').innerText = resp.links.length + ' item(ns) na fila.' +
-      (resp.timerOn ? ' | Timer 2h \u2713' : ' | Timer off');
+      (resp.timerOn ? ' | Timer 2h \u2713' : ' | Timer 2h OFF') +
+      (resp.pollOn ? ' | Auto \u2713' : ' | Auto OFF');
     $('timerBtn').innerText = resp.timerOn ? 'Desativar Timer (2h)' : 'Ativar Timer (2h)';
     renderQueue(resp.links, resp.current);
+    renderTimers(resp);
+    renderStandby(resp.standby || []);
     if (resp.logs && resp.logs.length) {
       $('log').innerText = resp.logs.slice().reverse().join('\n');
     }
@@ -77,6 +105,16 @@ $('pollNowBtn').addEventListener('click', async () => {
   $('status').innerText = 'Buscando pedidos no n8n...';
   try { await sendMsg({ action: 'run_poll' }); } catch (e) {}
   setTimeout(refresh, 800);
+});
+
+$('stopBtn').addEventListener('click', async () => {
+  try {
+    const resp = await sendMsg({ action: 'stop_all' });
+    $('status').innerText = resp && resp.ok ? 'PARADO — fila e timers desativados.' : 'Erro ao parar.';
+    refresh();
+  } catch (e) {
+    $('status').innerText = 'Erro ao parar.';
+  }
 });
 
 $('resetBtn').addEventListener('click', async () => {
