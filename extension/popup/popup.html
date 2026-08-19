@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infobip Scraper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon"></div>
+        <h1>Infobip <span>Scraper</span></h1>
+      </div>
+    </header>
+
+    <main>
+      <div class="card">
+        <div class="input-group">
+          <label for="dateFrom">Data Inicial</label>
+          <input type="datetime-local" id="dateFrom">
+        </div>
+        
+        <div class="input-group">
+          <label for="dateTo">Data Final</label>
+          <input type="datetime-local" id="dateTo">
+        </div>
+
+        <div class="main-actions">
+          <button id="startBtn" class="primary-btn">
+            <span class="btn-text">Iniciar Coleta</span>
+            <div class="loader" id="btnLoader"></div>
+          </button>
+          <button id="pauseBtn" class="secondary-btn" style="display: none;">
+            <span class="btn-text">Pausar</span>
+          </button>
+          <button id="stopBtn" class="danger-btn" style="display: none;">
+            <span class="btn-text">Parar</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="status-card" id="statusCard" style="display: none;">
+        <div class="current-info">
+          <span class="label">Campanha Atual</span>
+          <p id="currentCampaignName">Aguardando...</p>
+        </div>
+
+        <div class="status-header">
+          <span id="statusText">Iniciando...</span>
+          <span id="percentageText">0%</span>
+        </div>
+        
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-label">Entregues</span>
+            <span class="stat-value success" id="deliveredCount">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Não Entregues</span>
+            <span class="stat-value error" id="notDeliveredCount">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Processados</span>
+            <span class="stat-value" id="processedCount">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Erros</span>
+            <span class="stat-value" id="errorCount">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions" id="actionArea" style="display: none;">
+        <button id="exportBtn" class="secondary-btn">Exportar CSV</button>
+        <button id="clearBtn" class="danger-btn">Limpar Dados</button>
+      </div>
+    </main>
+
+    <footer>
+      <p>Desenvolvido para Plug & Sales</p>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

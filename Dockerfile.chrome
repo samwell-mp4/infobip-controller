@@ -1,0 +1,17 @@
+FROM debian:bookworm-slim
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates wget gnupg xvfb x11vnc fluxbox dbus-x11 procps curl unzip \
+    fonts-liberation fonts-noto-color-emoji && \
+    wget -qO- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && apt-get install -y --no-install-recommends google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1000 -s /bin/bash pptruser && mkdir -p /home/pptruser/.config/google-chrome && chown -R pptruser:pptruser /home/pptruser
+COPY start-chrome.sh /usr/local/bin/start-chrome.sh
+RUN chmod +x /usr/local/bin/start-chrome.sh
+USER pptruser
+ENV HOME=/home/pptruser
+EXPOSE 5900
+CMD ["/usr/local/bin/start-chrome.sh"]

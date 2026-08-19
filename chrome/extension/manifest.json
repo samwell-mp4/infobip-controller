@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Infobip Broadcast Scraper",
+  "version": "1.0.0",
+  "description": "Extrai dados de transmissões do portal Infobip automaticamente.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "activeTab",
+    "sidePanel",
+    "downloads",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://portal-ny2.infobip.com/*",
+    "http://controller:3000/*",
+    "https://var-hub-infobip-controller.hx8235.easypanel.host/*"
+  ],
+  "side_panel": {
+    "default_path": "popup/popup.html"
+  },
+  "action": {
+    "default_title": "Abrir Infobip Scraper"
+  },
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://portal-ny2.infobip.com/broadcast*"],
+      "js": ["scripts/content.js"]
+    }
+  ],
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}

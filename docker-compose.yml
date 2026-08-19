@@ -1,0 +1,52 @@
+services:
+  controller:
+    build: ./controller
+    container_name: infobip-controller
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      API_TOKEN: ${API_TOKEN}
+    volumes:
+      - controller_data:/data
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [infobip]
+
+  chrome:
+    build:
+      context: .
+      dockerfile: Dockerfile.chrome
+    container_name: infobip-chrome
+    restart: unless-stopped
+    shm_size: "2gb"
+    environment:
+      DISPLAY: :99
+      SCREEN_WIDTH: 1920
+      SCREEN_HEIGHT: 1080
+      SCREEN_DEPTH: 24
+    depends_on: [controller]
+    volumes:
+      - chrome_profile:/home/pptruser/.config/google-chrome
+      - ./extension:/opt/extension:ro
+    networks: [infobip]
+
+  novnc:
+    image: bonigarcia/novnc:1.3.0
+    container_name: infobip-novnc
+    restart: unless-stopped
+    environment:
+      AUTOCONNECT: "true"
+      VNC_SERVER: "chrome:5900"
+    ports:
+      - "127.0.0.1:6080:6080"
+    depends_on: [chrome]
+    networks: [infobip]
+
+volumes:
+  chrome_profile:
+  controller_data:
+
+networks:
+  infobip:
+    driver: bridge

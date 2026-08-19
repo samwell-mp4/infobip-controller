@@ -1,0 +1,16 @@
+{
+  "method": "POST",
+  "url": "http://127.0.0.1:3000/api/start",
+  "sendHeaders": true,
+  "headerParameters": {
+    "parameters": [
+      {
+        "name": "x-api-token",
+        "value": "SEU_API_TOKEN"
+      }
+    ]
+  },
+  "sendBody": true,
+  "contentType": "json",
+  "jsonBody": "={\"dateFrom\": {{ new Date($json.dateFrom).getTime() }}, \"dateTo\": {{ new Date($json.dateTo).getTime() }}, \"jobId\": \"{{ $execution.id }}\"}"
+}
