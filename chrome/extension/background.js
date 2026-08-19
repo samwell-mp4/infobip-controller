@@ -31,8 +31,8 @@ function sSet(key, val) {
 function getN8nConfig() {
   return new Promise(resolve => {
     chrome.storage.local.get({
-      ib_fetch_url: 'https://var-hub-infobip-controller.hx8235.easypanel.host/api/jobs',
-      ib_post_url: 'https://var-hub-infobip-controller.hx8235.easypanel.host/api/result',
+      ib_fetch_url: 'https://plug-sales-dispatch-app-n8n-2.hx8235.easypanel.host/webhook/71e418e2-0e0d-49c1-a49b-71c929688454',
+      ib_post_url: 'https://plug-sales-dispatch-app-n8n-2.hx8235.easypanel.host/webhook/notifcation-whatsapp-relatorio',
       ib_token: 'samwell-midia',
       ib_poll_enabled: true,
       ib_poll_min: 5,
@@ -267,8 +267,16 @@ function finishItem(item) {
 // ---------------- Integração n8n ----------------
 
 function normalizeJob(j) {
-  const url = j.link || j.url || j.Url || j.Link;
-  const phone = String(j.telefone || j.phone || j.celular || j.whatsapp || j.Phone || '').trim();
+  let url = j.link || j.url || j.Url || j.Link;
+  if (!url) {
+    for (const k of Object.keys(j)) {
+      if (/^https?:\/\//i.test(String(j[k]))) {
+        url = j[k];
+        break;
+      }
+    }
+  }
+  const phone = String(j.numero || j.telefone || j.phone || j.celular || j.whatsapp || j.Phone || '').trim();
   const jobId = j.id !== undefined && j.id !== null ? j.id : (j.ID !== undefined ? j.ID : null);
   if (!url || !/^https?:\/\//i.test(url)) return null;
   const m = url.match(/\/([^/?]+)\/?(\?|$)/);
@@ -298,9 +306,9 @@ async function runN8nPoll() {
   }
   try {
     log('Buscando pedidos pendentes no n8n...');
-    const headers = {};
+    const headers = { 'Content-Type': 'application/json' };
     if (cfg.ib_token) headers['x-api-token'] = cfg.ib_token;
-    const resp = await fetch(cfg.ib_fetch_url, { method: 'GET', headers });
+    const resp = await fetch(cfg.ib_fetch_url, { method: 'POST', headers, body: '{}' });
     if (!resp.ok) {
       log('Falha ao buscar pedidos do n8n: HTTP ' + resp.status);
       return;
