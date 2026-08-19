@@ -539,8 +539,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             current,
             timerOn: !!alarm,
             nextRun: alarm ? new Date(alarm.scheduledTime).toLocaleString() : null,
+            nextRunTs: alarm ? alarm.scheduledTime : null,
             pollOn: !!pollAlarm,
             nextPoll: pollAlarm ? new Date(pollAlarm.scheduledTime).toLocaleString() : null,
+            nextPollTs: pollAlarm ? pollAlarm.scheduledTime : null,
             standby,
             sentCount,
             lastStatus: local.ib_status || null,
@@ -613,6 +615,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             log('Timer ativado (a cada 2 horas).');
           }
           sendResponse({ ok: true });
+          return;
+        }
+
+        case 'toggle_poll': {
+          const pollAlarm = await getAlarm(POLL_ALARM);
+          if (pollAlarm) {
+            await chrome.alarms.clear(POLL_ALARM);
+            await chrome.storage.local.set({ ib_poll_enabled: false });
+            log('Busca automática DESATIVADA.');
+            sendResponse({ ok: true, pollOn: false });
+          } else {
+            const cfg = await getN8nConfig();
+            const min = Math.max(1, parseInt(cfg.ib_poll_min, 10) || 5);
+            chrome.alarms.create(POLL_ALARM, { delayInMinutes: min, periodInMinutes: min });
+            await chrome.storage.local.set({ ib_poll_enabled: true });
+            log(`Busca automática ATIVADA (a cada ${min} min).`);
+            sendResponse({ ok: true, pollOn: true });
+          }
           return;
         }
 

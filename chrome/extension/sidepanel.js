@@ -27,14 +27,26 @@ function renderQueue(links, current) {
   }).join('');
 }
 
+function fmtCountdown(ts, withHours) {
+  if (!ts) return 'OFF';
+  const total = Math.max(0, Math.floor((ts - Date.now()) / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const p = n => String(n).padStart(2, '0');
+  return withHours ? p(h) + ':' + p(m) + ':' + p(s) : p(m) + ':' + p(s);
+}
+
 function renderTimers(resp) {
   const el = $('timers');
+  const pollMin = (resp.n8n && resp.n8n.pollMin) || 5;
   const parts = [];
-  parts.push('Timer 2h: ' + (resp.nextRun ? resp.nextRun : (resp.timerOn ? 'agendado' : 'OFF')));
-  parts.push('Busca auto (' + (resp.n8n ? resp.n8n.pollMin : 5) + ' min): ' + (resp.nextPoll ? resp.nextPoll : (resp.pollOn ? 'agendado' : 'OFF')));
+  parts.push('Timer 2h dispara em: ' + fmtCountdown(resp.nextRunTs, true) + (resp.timerOn ? ' (ON)' : ' (OFF)'));
+  parts.push('Busca auto ' + pollMin + ' min dispara em: ' + fmtCountdown(resp.nextPollTs) + (resp.pollOn ? ' (ON)' : ' (OFF)'));
   if (resp.n8n && resp.n8n.lastPoll) parts.push('Última busca: ' + resp.n8n.lastPoll);
   if (resp.sentCount !== undefined) parts.push('Enviados/registrados: ' + resp.sentCount);
   el.innerText = parts.join('\n');
+  $('pollToggleBtn').innerText = resp.pollOn ? 'Desativar Busca auto (' + pollMin + ' min)' : 'Ativar Busca auto (' + pollMin + ' min)';
 }
 
 function renderStandby(list) {
@@ -107,6 +119,16 @@ $('pollNowBtn').addEventListener('click', async () => {
   setTimeout(refresh, 800);
 });
 
+$('pollToggleBtn').addEventListener('click', async () => {
+  try {
+    const resp = await sendMsg({ action: 'toggle_poll' });
+    $('status').innerText = resp && resp.ok ? (resp.pollOn ? 'Busca automática ativada.' : 'Busca automática desativada.') : 'Erro ao alternar busca.';
+    refresh();
+  } catch (e) {
+    $('status').innerText = 'Erro ao alternar busca.';
+  }
+});
+
 $('stopBtn').addEventListener('click', async () => {
   try {
     const resp = await sendMsg({ action: 'stop_all' });
@@ -177,4 +199,4 @@ chrome.runtime.onMessage.addListener(request => {
 });
 
 refresh();
-setInterval(refresh, 2000);
+setInterval(refresh, 1000);
