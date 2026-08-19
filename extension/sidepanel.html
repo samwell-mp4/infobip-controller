@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 12px; background-color: #f7f8fa; color: #222; box-sizing: border-box; }
+    h3 { margin: 0 0 10px; font-size: 15px; text-align: center; color: #444; }
+    label { font-size: 12px; color: #555; display: block; margin-top: 10px; }
+    label.sub { font-size: 11px; color: #777; margin-top: 8px; }
+    textarea { width: 100%; height: 70px; box-sizing: border-box; margin-top: 4px; font-size: 11px; font-family: monospace; padding: 6px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; }
+    input[type="text"] { width: 100%; box-sizing: border-box; margin-top: 3px; padding: 7px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    button { flex: 1; padding: 9px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; background-color: #007bff; color: white; }
+    button:hover { background-color: #0056b3; }
+    button.secondary { background-color: #6c757d; }
+    button.secondary:hover { background-color: #545b62; }
+    button.green { background-color: #28a745; }
+    button.green:hover { background-color: #1e7e34; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 14px 0 6px; }
+    #status { margin-top: 8px; font-size: 11px; color: #555; }
+    #queue { margin-top: 6px; max-height: 200px; overflow: auto; border: 1px solid #ddd; border-radius: 4px; background: #fff; }
+    .qitem { padding: 5px 8px; font-size: 11px; border-bottom: 1px solid #eee; }
+    .qitem:last-child { border-bottom: none; }
+    .qitem.active { background: #d4edda; }
+    .qitem .qname { font-weight: bold; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .qitem .qurl { color: #888; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .empty { padding: 8px; font-size: 11px; color: #888; text-align: center; }
+    #log { margin-top: 6px; font-size: 10px; color: #444; background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 6px; height: 160px; overflow: auto; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h3>Infobip Automator</h3>
+  <div id="status">Carregando...</div>
+
+  <label>Fila de relatórios</label>
+  <div id="queue"></div>
+  <div class="row">
+    <button id="runBtn" class="green">Executar Agora</button>
+    <button id="pollNowBtn" class="secondary">Buscar Agora</button>
+  </div>
+
+  <hr>
+  <label>Links manuais (um por linha, opcional: link | telefone):</label>
+  <textarea id="links" placeholder="https://portal-ny2.infobip.com/... | 5511999999999"></textarea>
+  <div class="row">
+    <button id="saveBtn">Salvar Links</button>
+    <button id="timerBtn" class="secondary">Ativar Timer (2h)</button>
+  </div>
+
+  <label>Testar em URL única (opcional: link | telefone):</label>
+  <div class="row">
+    <input type="text" id="testUrl" placeholder="https://... | 5511999999999">
+    <button id="testBtn" class="secondary">Testar</button>
+  </div>
+
+  <hr>
+  <label><b>n8n / WhatsApp</b></label>
+  <label class="sub">URL para BUSCAR pedidos (POST):</label>
+  <input type="text" id="fetchUrl">
+  <label class="sub">URL para ENVIAR resultado (POST):</label>
+  <input type="text" id="postUrl">
+  <div class="row">
+    <button id="saveN8nBtn" class="secondary">Salvar n8n</button>
+  </div>
+
+  <label>Logs</label>
+  <div id="log"></div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

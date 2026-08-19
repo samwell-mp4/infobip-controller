@@ -146,13 +146,21 @@ async function ensurePollAlarm() {
   }
 }
 
+function setupSidePanel() {
+  try {
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  } catch (e) {}
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   ensureTimer();
   ensurePollAlarm();
+  setupSidePanel();
 });
 chrome.runtime.onStartup.addListener(() => {
   ensureTimer();
   ensurePollAlarm();
+  setupSidePanel();
 });
 
 chrome.alarms.onAlarm.addListener(async alarm => {
@@ -401,6 +409,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         case 'get_links': {
           const links = await getQueue();
+          const current = await sGet('ib_current', null);
           const alarm = await getAlarm(ALARM_NAME);
           const cfg = await getN8nConfig();
           const local = await new Promise(res =>
@@ -409,6 +418,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({
             ok: true,
             links,
+            current,
             timerOn: !!alarm,
             nextRun: alarm ? new Date(alarm.scheduledTime).toLocaleString() : null,
             lastStatus: local.ib_status || null,

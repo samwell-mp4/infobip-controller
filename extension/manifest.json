@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Infobip Report Automator",
-  "version": "1.1",
+  "version": "1.2",
   "description": "Automatiza a extração de relatórios no Infobip a partir de uma lista de links. Verifica se Pendentes = 0, tira screenshot e gera o relatório automaticamente. Roda a cada 2 horas via timer.",
   "permissions": [
     "activeTab",
@@ -10,14 +10,18 @@
     "notifications",
     "scripting",
     "storage",
-    "tabs"
+    "tabs",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://*.infobip.com/*",
     "<all_urls>"
   ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "action": {
-    "default_popup": "popup.html"
+    "default_title": "Infobip Automator"
   },
   "background": {
     "service_worker": "background.js"
