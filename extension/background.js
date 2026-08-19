@@ -11,6 +11,8 @@
 const STORAGE_KEY = 'infobip_links';
 const ALARM_NAME = 'every2h';
 const POLL_ALARM = 'poll_n8n';
+const WATCHDOG_ALARM = 'ib_watchdog';
+const PROC_WATCHDOG_MS = 10 * 60 * 1000;
 
 let processing = false;
 let keepAliveId = null;
@@ -127,6 +129,29 @@ async function setBusy(busy) {
   }
 }
 
+async function heartbeat() {
+  await sSet('ib_proc_beat', Date.now());
+}
+
+async function watchdogTick() {
+  const busy = await sGet('processing', false);
+  if (!busy) return;
+  const last = await sGet('ib_proc_beat', 0);
+  const now = Date.now();
+  if (!last) {
+    await sSet('ib_proc_beat', now);
+    return;
+  }
+  if (now - last > PROC_WATCHDOG_MS) {
+    await sSet('processing', false);
+    processing = false;
+    await sSet('test_mode', false);
+    await sSet('ib_current', null);
+    stopKeepAlive();
+    log('Processamento travado detectado — estado resetado automaticamente.');
+  }
+}
+
 // ---------------- Timers ----------------
 
 function ensureTimer() {
@@ -152,14 +177,22 @@ function setupSidePanel() {
   } catch (e) {}
 }
 
+function ensureWatchdogAlarm() {
+  chrome.alarms.get(WATCHDOG_ALARM, a => {
+    if (!a) chrome.alarms.create(WATCHDOG_ALARM, { delayInMinutes: 1, periodInMinutes: 1 });
+  });
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   ensureTimer();
   ensurePollAlarm();
+  ensureWatchdogAlarm();
   setupSidePanel();
 });
 chrome.runtime.onStartup.addListener(() => {
   ensureTimer();
   ensurePollAlarm();
+  ensureWatchdogAlarm();
   setupSidePanel();
 });
 
@@ -170,6 +203,8 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     startProcessing('timer');
   } else if (alarm.name === POLL_ALARM) {
     runN8nPoll();
+  } else if (alarm.name === WATCHDOG_ALARM) {
+    watchdogTick();
   }
 });
 
@@ -183,6 +218,8 @@ async function startProcessing(source) {
   }
   await setBusy(true);
   startKeepAlive();
+  await sSet('ib_proc_start', Date.now());
+  await sSet('ib_proc_beat', Date.now());
 
   const links = await getQueue();
   if (!links.length) {
@@ -253,6 +290,7 @@ function processNext() {
     await setQueue(queue);
     await sSet('ib_current', item);
     await sSet('ib_status', 'gerado');
+    await heartbeat();
     await sSet('ib_count', '');
     log(`Processando: ${item.name} (restam ${queue.length})`);
 
@@ -459,6 +497,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           await sSet('test_mode', true);
           await setBusy(true);
           startKeepAlive();
+          await sSet('ib_proc_start', Date.now());
+          await sSet('ib_proc_beat', Date.now());
           log(`=== MODO TESTE === ${testUrl}${testPhone ? ' | tel ' + testPhone : ''}`);
           showNotify('Iniciando teste do link...');
 
@@ -521,6 +561,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         // Captura o viewport atual da aba (chamado pelo content.js durante o scroll)
         case 'capture_viewport': {
+          await heartbeat();
           if (!sender.tab) {
             sendResponse({ ok: false, error: 'sem aba' });
             return;
@@ -542,6 +583,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'save_screenshot': {
+          await heartbeat();
           const filename = `disparo/infobip_${safeName(request.name)}_${timestamp()}.png`;
           try {
             let blobUrl = null;
@@ -591,6 +633,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'close_tab_and_next': {
+          await heartbeat();
           if (sender.tab) {
             try { await chrome.tabs.remove(sender.tab.id); } catch (e) {}
           }
@@ -621,6 +664,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
           finishItem(item);
           processNext();
+          sendResponse({ ok: true });
+          return;
+        }
+
+        case 'reset_state': {
+          await setBusy(false);
+          await sSet('test_mode', false);
+          await sSet('ib_current', null);
+          await sSet('ib_status', 'Estado resetado.');
+          await sSet('ib_count', '');
+          await sSet('ib_proc_beat', 0);
+          log('Estado resetado pelo usuário.');
           sendResponse({ ok: true });
           return;
         }

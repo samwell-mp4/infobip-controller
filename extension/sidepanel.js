@@ -79,6 +79,16 @@ $('pollNowBtn').addEventListener('click', async () => {
   setTimeout(refresh, 800);
 });
 
+$('resetBtn').addEventListener('click', async () => {
+  try {
+    const resp = await sendMsg({ action: 'reset_state' });
+    $('status').innerText = resp && resp.ok ? 'Estado resetado.' : 'Erro ao resetar.';
+    refresh();
+  } catch (e) {
+    $('status').innerText = 'Erro ao resetar.';
+  }
+});
+
 $('timerBtn').addEventListener('click', async () => {
   try { await sendMsg({ action: 'toggle_timer' }); } catch (e) {}
   refresh();
