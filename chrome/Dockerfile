@@ -27,8 +27,8 @@ RUN mkdir -p \
     /data/chrome \
     /tmp/chrome-profile
 
-COPY chrome/extension/ /opt/extension/
-COPY chrome/start.sh /start.sh
+COPY extension/ /opt/extension/
+COPY start.sh /start.sh
 
 RUN chmod +x /start.sh
 
