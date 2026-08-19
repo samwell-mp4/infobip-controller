@@ -46,7 +46,7 @@ function getN8nConfig() {
 function log(text) {
   console.log('[Infobip]', text);
   try {
-    const entry = `${new Date().toLocaleTimeString()} - ${text}`;
+    const entry = `${brClock(new Date())} - ${text}`;
     chrome.storage.local.get({ ib_status: 'Nenhuma execução ainda.', ib_logs: [] }, d => {
       const logs = (d.ib_logs || []).concat(entry).slice(-30);
       chrome.storage.local.set({ ib_status: entry, ib_logs: logs });
@@ -146,6 +146,15 @@ function timestamp() {
   const d = new Date();
   const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+}
+
+// Horários em Brasília (SP, Brasil)
+function brTime(date) {
+  return new Date(date).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+
+function brClock(date) {
+  return new Date(date).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 }
 
 // Mantém o service worker acordado enquanto houver processamento
@@ -431,9 +440,9 @@ async function runN8nPoll() {
     let jobs = Array.isArray(data) ? data : (data.jobs || data.data || data.pedidos || []);
     const items = (Array.isArray(jobs) ? jobs : []).map(normalizeJob).filter(Boolean);
     const cfg2 = await getN8nConfig();
-    const stamp = `${new Date().toLocaleTimeString()} - ${items.length} pedido(s)`;
+    const stamp = `${brClock(new Date())} - ${items.length} pedido(s)`;
     await chrome.storage.local.set({
-      ib_last_poll: items.length ? stamp : `${new Date().toLocaleTimeString()} - 0 pedidos`
+      ib_last_poll: items.length ? stamp : `${brClock(new Date())} - 0 pedidos`
     });
     if (!items.length) {
       log('Nenhum pedido pendente no n8n.');
@@ -538,10 +547,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             links,
             current,
             timerOn: !!alarm,
-            nextRun: alarm ? new Date(alarm.scheduledTime).toLocaleString() : null,
+            nextRun: alarm ? brTime(alarm.scheduledTime) : null,
             nextRunTs: alarm ? alarm.scheduledTime : null,
             pollOn: !!pollAlarm,
-            nextPoll: pollAlarm ? new Date(pollAlarm.scheduledTime).toLocaleString() : null,
+            nextPoll: pollAlarm ? brTime(pollAlarm.scheduledTime) : null,
             nextPollTs: pollAlarm ? pollAlarm.scheduledTime : null,
             standby,
             sentCount,

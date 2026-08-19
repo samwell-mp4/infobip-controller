@@ -9,6 +9,10 @@ function esc(s) {
     .replace(/>/g, '&gt;');
 }
 
+function brTime(d) {
+  return new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+
 function renderQueue(links, current) {
   const el = $('queue');
   if (!links || !links.length) {
@@ -56,7 +60,7 @@ function renderStandby(list) {
     return;
   }
   el.innerHTML = list.map(s => {
-    const when = new Date(s.updated).toLocaleString();
+    const when = brTime(s.updated);
     return '<div class="qitem">' +
       '<div class="qname">' + esc(s.code || '') + ' | ' + esc(s.numero) + ' | tentativas: ' + (s.skips || 0) + '</div>' +
       '<div class="qurl">' + esc(s.name) + ' - ' + when + '</div>' +
